@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript ChatGPT Clone</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <!-- <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap"> -->
+    <link href='https://fonts.googleapis.com/css?family=Space Grotesk' rel='stylesheet'>
+</head>
+<body>
+    <section class="side-bar">
+        <div class="newChatDiv">
+            <button id="newChat">New Chat</button>
+        </div>
+        <div class="history"></div>
+        <div class="nav"></div>
+        <nav>
+            <p>Made by Oshoma</p>
+        </nav>
+    </section>
+
+    <section class="main">
+        <h1 class="botName">P.I.BOT</h1>
+        <div id="output"></div>
+        <div class="bottomMain">
+            <div class="button-section">
+                <form id="searchForm">
+                    <div class="search">
+                        <input id="search" class="search-input" type="search" placeholder="Search">
+                        <button class="material-symbols-outlined" id="start" type="button">mic</button>
+                    </div>
+                </form>
+            </div>
+            <p class="info">P.I.BOT June 12 Version. Free Research Preview. 
+                Our goal is to make AI systems more natural and safe to interact with.
+                Your feedback will help us improve.
+            </p>
+        </div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/remove-markdown@0.5.0/index.min.js"></script> -->
+    <script type="importmap">
+        {
+          "imports": {
+            "@google/generative-ai": "https://esm.run/@google/generative-ai"
+          }
+        }
+    </script>
+
+    <!-- SPEECH TO TEXT USING WEB SPEECH API -->
+    <script>
+        const outputVoice = document.getElementById('output');
+        const startButton = document.getElementById('start');
+        const searchInput = document.getElementById('search');
+        const searchForm = document.getElementById('searchForm');
+
+        const speechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new speechRecognition();
+
+        recognition.lang = 'en';
+        recognition.interimResults = false;
+        recognition.continuous = false;
+
+        startButton.addEventListener('click', () => {
+            recognition.start();
+            console.log('Recognition started');
+        });
+
+        recognition.onresult = (e) => {
+            const transcript = e.results[e.results.length - 1][0].transcript;
+            searchInput.value = capitalizeFirstLetter(transcript);
+            console.log('Recognition result:', transcript);
+            run(); // Call the run function to generate output immediately
+        };
+
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+    </script>
+
+    <!-- TEXT TO SPEECH -->
+    <script>
+        const synth = window.speechSynthesis;
+        // utterance.pitch = 1;
+        // utterance.rate = 0.1;
+
+        function speakText(text) {
+            const chunkSize = 200; // Adjust chunk size if necessary
+            const chunks = text.match(new RegExp('.{1,' + chunkSize + '}', 'g'));
+            let currentChunkIndex = 0;
+
+            function speakNextChunk() {
+                if (currentChunkIndex < chunks.length) {
+                    const utter = new SpeechSynthesisUtterance(chunks[currentChunkIndex]);
+                    utter.addEventListener('end', () => {
+                        currentChunkIndex++;
+                        speakNextChunk();
+                    });
+                    synth.speak(utter);
+                }
+            }
+
+            speakNextChunk();
+        }
+    </script>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+        import removeMarkdown from 'https://cdn.jsdelivr.net/npm/remove-markdown@0.5.0/+esm';
+        
+        // const removeMd = require('remove-markdown');
+        const API_KEY = "AIzaSyC4H3PHFoFFGCll3J1Vzb05lJYLVXhN93k";
+        const genAI = new GoogleGenerativeAI(API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        let converter = new showdown.Converter();
+        const inputElement = document.querySelector('#search');
+        const outPutElements = document.querySelector('#output');
+        const historyElement = document.querySelector('.history');
+        const buttonElement = document.querySelector('button');
+
+        function changeInput(value) {
+            inputElement.value = value;
+        }
+
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            run();
+        });
+
+        async function run() {
+            console.log('Clicked');
+            console.log(inputElement.value);
+
+            const result = await model.generateContent(inputElement.value);
+            const response = await result.response;
+            const text = await response.text();
+
+            const outPutElement = document.createElement('p');
+            outPutElement.classList.add('output');
+
+            let html = converter.makeHtml(text);
+            outPutElement.innerHTML = html;
+            outPutElements.appendChild(outPutElement);
+
+            const historyEntry = document.createElement('p');
+            historyEntry.textContent = inputElement.value;
+            historyEntry.addEventListener('click', () => changeInput(historyEntry.textContent));
+            historyElement.append(historyEntry);
+
+            const plainText = removeMarkdown(text); // Strip markdown to plain text
+            speakText(plainText); // Use the speakText function to read the plain text
+        }
+
+        function clearInput() {
+            inputElement.value = '';
+            // outPutElements.value = '';
+        }
+
+        buttonElement.addEventListener('click', clearInput);
+
+        // Expose the run function to the global scope
+        window.run = run;
+    </script>
+</body>
+</html>
